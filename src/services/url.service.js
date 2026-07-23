@@ -1,4 +1,4 @@
-import { encode } from "../utils/base62";
+import { encode } from "../utils/base62.js";
 import { prisma } from "../lib/prisma.ts";
 
 const createUrl = async ({ longUrl }) => {
@@ -17,6 +17,13 @@ const createUrl = async ({ longUrl }) => {
 
 const findUrl = async ({ shortCode }) => {
     const url = await prisma.url.findUnique({ where: { shortCode } });
+
+    // update click count
+    await prisma.url.update({
+        where: { shortCode },
+        data: { clickCount: { increment: 1 } }
+    });
+
     return { longUrl: url.longUrl };
 }
 

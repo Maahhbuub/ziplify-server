@@ -1,4 +1,4 @@
-import { createUrl, findUrl } from "../services/urls.service";
+import { createUrl, findUrl } from "../services/url.service";
 
 const createShortUrl = async (req, res) => {
     const { longUrl } = req.body;
