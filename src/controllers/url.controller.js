@@ -15,7 +15,7 @@ const redirectToUrl = async (req, res) => {
     const { shortCode } = req.params;
 
     const { longUrl } = await findUrl({ shortCode });
-    res.redirect(302, longUrl);
+    return res.redirect(302, longUrl);
 }
 
 export { createShortUrl, redirectToUrl };
