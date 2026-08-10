@@ -5,7 +5,7 @@ import redis from "../lib/redisClient.js"
 const cacheTime = 3600;
 
 const createUrl = async ({ longUrl }) => {
-    const created = await prisma.url.create({ 
+    const created = await prisma.url.create({
         data: { longUrl, shortCode: "" }
     });
     const shortCode = encode(Number(created.id));
@@ -15,11 +15,11 @@ const createUrl = async ({ longUrl }) => {
         data: { shortCode },
     });
 
+    await redis.set(shortCode, longUrl, 'EX', cacheTime);
     return { shortCode: update.shortCode };
 }
 
 const findUrl = async ({ shortCode }) => {
-
     const cache = await redis.get(shortCode);
     if (cache) {
         await incrementClickCount(shortCode);
