@@ -18,7 +18,7 @@ const redirectToUrl = async (req, res) => {
 
     const url = await findUrl({ shortCode });
     if (!url) {
-        return res.redirect(404, "https://ziplify.vercel.app/null");
+        return res.redirect(302, `${process.env.CLIENT_URL}/not-found`);
     }
 
     return res.redirect(302, url.longUrl);
