@@ -18,10 +18,7 @@ const redirectToUrl = async (req, res) => {
 
     const url = await findUrl({ shortCode });
     if (!url) {
-        return res.status(404).json({
-            success: false,
-            message: "URL not found",
-        });
+        return res.redirect(404, "https://ziplify.vercel.app/null");
     }
 
     return res.redirect(302, url.longUrl);
