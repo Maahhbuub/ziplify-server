@@ -4,9 +4,11 @@ const createShortUrl = async (req, res) => {
     const { longUrl } = req.body;
     const { shortCode } = await createUrl({ longUrl });
 
+
+
     return res.status(201).json({
         success: true,
-        message: "Short code created successfully",
+        message: "Link created successfully",
         code: shortCode,
     });
 }
@@ -14,8 +16,15 @@ const createShortUrl = async (req, res) => {
 const redirectToUrl = async (req, res) => {
     const { shortCode } = req.params;
 
-    const { longUrl } = await findUrl({ shortCode });
-    return res.redirect(302, longUrl);
+    const url = await findUrl({ shortCode });
+    if (!url) {
+        return res.status(404).json({
+            success: false,
+            message: "URL not found",
+        });
+    }
+
+    return res.redirect(302, url.longUrl);
 }
 
 export { createShortUrl, redirectToUrl };

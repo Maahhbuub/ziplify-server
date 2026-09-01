@@ -1,4 +1,4 @@
-const ALPHABET = 'abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+const ALPHABET = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const BASE = ALPHABET.length;
 
 function encode(num) {
@@ -14,7 +14,11 @@ function encode(num) {
 function decode(str) {
     let num = 0;
     for (const char of str) {
-        num = num * BASE + ALPHABET.indexOf(char);
+        const value = CHAR_MAP[char];
+        if (value === undefined) {
+            throw new Error(`Invalid character: ${char}`);
+        }
+        num = num * BASE + value;
     }
     return num;
 }

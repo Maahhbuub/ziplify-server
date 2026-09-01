@@ -10,7 +10,7 @@ const shortenLimit = rateLimit({
     }),
     windowMs: 15 * 60 * 1000,
     max: 20,
-    message: 'Too many links created from this IP, please try again later.',
+    message: 'Too many request',
     standardHeaders: true,
     legacyHeaders: false,
 });
