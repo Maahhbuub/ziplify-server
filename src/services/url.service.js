@@ -2,7 +2,7 @@ import { encode } from "../utils/base62.js";
 import { prisma } from "../lib/prisma.ts";
 import redis from "../lib/redisClient.js"
 
-const cacheTime = 3600;
+const cacheTime = 900;
 
 const createUrl = async ({ longUrl }) => {
     const created = await prisma.url.create({
