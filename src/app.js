@@ -22,10 +22,6 @@ app.use(
     })
 );
 
-// routes
-app.use("/auth", authRoute);
-app.use("/", urlRoute);
-
 // health check
 app.get("/health", (req, res) => {
     res.status(200).json({
@@ -33,6 +29,10 @@ app.get("/health", (req, res) => {
         uptime: process.uptime(),
     });
 });
+
+// routes
+app.use("/auth", authRoute);
+app.use("/", urlRoute);
 
 // error handlers
 app.use(invalidRoute);
