@@ -14,6 +14,8 @@ model User {
   password     String
   refreshToken String?
 
+  urls Url[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -25,4 +27,11 @@ model Url {
   createdAt  DateTime  @default(now())
   expiresAt  DateTime?
   clickCount Int       @default(0)
+
+  userId Int?
+  user   User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // we can use onDelete:SetNull if we don't wanna remove the links after deleting the user.
+
+  @@index([longUrl]) // speeds up to find the duplicate urls
+  @@index([userId]) // speeds up 'get all URLs for this user'
 }
