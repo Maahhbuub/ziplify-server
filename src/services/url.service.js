@@ -4,9 +4,9 @@ import redis from "../lib/redisClient.js"
 
 const cacheTime = 900;
 
-const createUrl = async ({ longUrl }) => {
+const createUrl = async ({ longUrl, userId }) => {
     const created = await prisma.url.create({
-        data: { longUrl, shortCode: "" }
+        data: { longUrl, shortCode: "", userId: userId ?? null }
     });
     const shortCode = encode(Number(created.id));
 

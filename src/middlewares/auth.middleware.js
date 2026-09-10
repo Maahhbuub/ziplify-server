@@ -37,4 +37,32 @@ const protect = async (req, res, next) => {
     next();
 };
 
-export { protect };
+const optionalAuth = async (req, res, next) => {
+    let accessToken;
+    if (req.headers.authorization?.startsWith("Bearer ")) {
+        accessToken = req.headers.authorization.split(" ")[1];
+    }
+
+    if (!accessToken) {
+        req.user = null;
+        return next();
+    }
+
+    let decoded;
+    try {
+        decoded = jwt.verify(accessToken, process.env.ACCESS_TOKEN_SECRET);
+    } catch (err) {
+        req.user = null;
+        return next(); // bad token -> anonymous, not an error
+    }
+
+    const user = await prisma.user.findUnique({
+        where: { id: decoded.id },
+        select: { id: true, name: true, email: true },
+    });
+
+    req.user = user ?? null;
+    next();
+};
+
+export { protect, optionalAuth };
