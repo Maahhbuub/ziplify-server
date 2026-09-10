@@ -7,7 +7,7 @@ import { generateAccessToken, generateRefreshToken } from "../utils/generateToke
 const registerUser = async ({ name, email, password }) => {
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
-        const error = new Error("Email is already registered.");
+        const error = new Error("Email already registered.");
         error.statusCode = 400;
         throw error;
     }

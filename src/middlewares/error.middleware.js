@@ -6,7 +6,7 @@ const globalError = (err, req, res, next) => {
 
     res.status(status).json({
         status: status,
-        message: "Error - " + message,
+        message: message,
     });
 };
 
