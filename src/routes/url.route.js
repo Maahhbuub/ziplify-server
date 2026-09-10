@@ -5,12 +5,13 @@ const router = express.Router();
 import catchAsync from '../utils/catchAsync';
 import { shortenLimit, redirectLimit } from '../middlewares/url.middleware';
 import { optionalAuth } from '../middlewares/auth.middleware'
+import { validateRequest } from '../middlewares/validation.middleware';
+import { createUrlSchema } from '../validations/url.validation';
 
 // controller
 import { createShortUrl, redirectToUrl } from '../controllers/url.controller';
 
-router.route("/").post(shortenLimit, optionalAuth, catchAsync(createShortUrl));
-
+router.route("/").post(shortenLimit, optionalAuth, validateRequest(createUrlSchema), catchAsync(createShortUrl));
 router.route("/:shortCode").get(redirectLimit, catchAsync(redirectToUrl));
 
 export default router;
