@@ -35,6 +35,10 @@ const findUrl = async ({ shortCode }) => {
     return { longUrl: url.longUrl };
 }
 
+const getUrls = async (userId) => {
+    const urls = await prisma.url.findMany({ where: { userId } });
+    return { myUrls: urls };
+};
 
 const incrementClickCount = async (shortCode) => {
     await prisma.url.update({
@@ -43,4 +47,4 @@ const incrementClickCount = async (shortCode) => {
     });
 };
 
-export { createUrl, findUrl };
+export { createUrl, findUrl, getUrls };

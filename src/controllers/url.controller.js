@@ -3,12 +3,14 @@ import { createUrl, findUrl } from "../services/url.service";
 const createShortUrl = async (req, res) => {
     const { longUrl } = req.body;
     const userId = req.user?.id ?? null;
+    const username = req.user?.name ?? null;
     const { shortCode } = await createUrl({ longUrl, userId });
 
     return res.status(201).json({
         success: true,
         message: "Link created successfully",
         code: shortCode,
+        user: username,
     });
 }
 

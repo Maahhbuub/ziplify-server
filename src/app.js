@@ -8,6 +8,7 @@ import { globalError, invalidRoute } from "./middlewares/error.middleware.js";
 // routes
 import authRoute from "./routes/auth.routes.js";
 import urlRoute from "./routes/url.route.js";
+import dashboardRoute from "./routes/dashboard.routes.js";
 
 const app = express();
 
@@ -30,8 +31,15 @@ app.get("/health", (req, res) => {
     });
 });
 
+app.get('/', (req, res) => {
+    res.status(200).json({
+        greet: "Hello, welcome to ziplify",
+    });
+})
+
 // routes
 app.use("/auth", authRoute);
+app.use("/dashboard", dashboardRoute);
 app.use("/", urlRoute);
 
 // error handlers
