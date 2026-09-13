@@ -40,6 +40,20 @@ const getUrls = async (userId) => {
     return { myUrls: urls };
 };
 
+const deleteUrls = async (userId, id) => {
+    const url = await prisma.url.findUnique({ where: { id: Number(id) } });
+    if (!url) return {
+        status: "not-found"
+    }
+    if (url.userId != userId) return {
+        status: "forbidden",
+    }
+
+    await prisma.url.delete({ where: { id: Number(id) } });
+    await redis.del(url.shortCode);
+    return url;
+}
+
 const incrementClickCount = async (shortCode) => {
     await prisma.url.update({
         where: { shortCode },
@@ -47,4 +61,4 @@ const incrementClickCount = async (shortCode) => {
     });
 };
 
-export { createUrl, findUrl, getUrls };
+export { createUrl, findUrl, getUrls, deleteUrls };
