@@ -40,18 +40,36 @@ const getUrls = async (userId) => {
     return { myUrls: urls };
 };
 
-const deleteUrls = async (userId, id) => {
+const deleteUrl = async (userId, id) => {
     const url = await prisma.url.findUnique({ where: { id: Number(id) } });
     if (!url) return {
         status: "not-found"
     }
-    if (url.userId != userId) return {
+    if (url.userId !== userId) return {
         status: "forbidden",
     }
 
     await prisma.url.delete({ where: { id: Number(id) } });
     await redis.del(url.shortCode);
     return url;
+}
+
+const updateUrl = async (id, userId, longUrl) => {
+    const url = await prisma.url.findUnique({ where: { id: Number(id) } });
+    if (!url) return {
+        status: "not-found"
+    }
+    if (userId !== url.userId) return {
+        status: "forbidden"
+    }
+
+    const updated = await prisma.url.update({
+        where: { id: Number(id) },
+        data: { longUrl }
+    });
+
+    await redis.set(updated.shortCode, updated.longUrl, 'EX', cacheTime);
+    return updated;
 }
 
 const incrementClickCount = async (shortCode) => {
@@ -61,4 +79,4 @@ const incrementClickCount = async (shortCode) => {
     });
 };
 
-export { createUrl, findUrl, getUrls, deleteUrls };
+export { createUrl, findUrl, getUrls, deleteUrl, updateUrl };
