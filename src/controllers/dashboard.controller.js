@@ -15,7 +15,7 @@ const deleteMyUrl = async (req, res) => {
     const { id } = req.params;
     const result = await deleteUrl(req.user.id, id);
 
-    if (result.status === 'not-found') {
+    if (result.status === 'not_found') {
         return res.status(404).json({
             success: false,
             message: "Link not found"
@@ -40,7 +40,7 @@ const updateMyUrl = async (req, res) => {
     const { longUrl } = req.body;
 
     const result = await updateUrl(id, req.user.id, longUrl);
-    if (result.status === 'not-found') {
+    if (result.status === 'not_found') {
         return res.status(404).json({
             success: false,
             message: "Link not found"

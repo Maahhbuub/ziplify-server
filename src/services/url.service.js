@@ -79,7 +79,7 @@ const getUrls = async (userId) => {
 const deleteUrl = async (userId, id) => {
     const url = await prisma.url.findUnique({ where: { id: Number(id) } });
     if (!url) return {
-        status: "not-found"
+        status: "not_found"
     }
     if (url.userId !== userId) return {
         status: "forbidden",
@@ -93,7 +93,7 @@ const deleteUrl = async (userId, id) => {
 const updateUrl = async (id, userId, longUrl) => {
     const url = await prisma.url.findUnique({ where: { id: Number(id) } });
     if (!url) return {
-        status: "not-found"
+        status: "not_found"
     }
     if (userId !== url.userId) return {
         status: "forbidden"
