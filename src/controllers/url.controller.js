@@ -1,15 +1,24 @@
 import { createUrl, findUrl } from "../services/url.service";
 
 const createShortUrl = async (req, res) => {
-    const { longUrl } = req.body;
+    const { longUrl, alias } = req.body;
     const userId = req.user?.id ?? null;
     const username = req.user?.name ?? null;
-    const { shortCode } = await createUrl({ longUrl, userId });
+
+    const effectiveAlias = userId ? alias : undefined;
+    const result = await createUrl({ longUrl, userId, alias: effectiveAlias });
+
+    if (result.status === 'alias_taken') {
+        return res.status(409).json({
+            success: false,
+            message: "This alias is already taken.",
+        });
+    }
 
     return res.status(201).json({
         success: true,
         message: "Link created successfully",
-        code: shortCode,
+        code: result.shortCode,
         user: username,
     });
 }
