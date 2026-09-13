@@ -29,6 +29,13 @@ const createUrlSchema = z.object({
                 message: "This alias is reserved and cannot be used",
             })
             .optional(),
+
+        expiresInDays: z
+            .number()
+            .int()
+            .positive("Expiration must be a positive number of days")
+            .max(3650, "Expiration cannot exceed 10 years")
+            .optional(),
     })
 });
 

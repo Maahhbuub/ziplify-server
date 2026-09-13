@@ -4,33 +4,61 @@ import redis from "../lib/redisClient.js"
 
 const cacheTime = 900;
 
-const createUrl = async ({ longUrl, userId, alias }) => {
-    if (alias) {
-        const existing = await prisma.url.findUnique({ where: { shortCode: alias } });
+const createUrl = async ({ longUrl, userId, alias, expiresInDays }) => {
+    if (userId && !alias) {
+        const existing = await prisma.url.findFirst({
+            where: {
+                longUrl,
+                userId,
+                OR: [
+                    { expiresAt: null },
+                    { expiresAt: { gt: new Date() } },
+                ],
+            },
+        });
+
         if (existing) {
+            // only touch expiresAt if this request explicitly provided a new value;
+            // otherwise leave the existing expiration untouched
+            if (expiresInDays) {
+                const newExpiresAt = new Date(Date.now() + expiresInDays * 24 * 60 * 60 * 1000);
+                const updated = await prisma.url.update({
+                    where: { id: existing.id },
+                    data: { expiresAt: newExpiresAt },
+                });
+                return { status: 'success', shortCode: updated.shortCode, reused: true };
+            }
+
+            return { status: 'success', shortCode: existing.shortCode, reused: true };
+        }
+    }
+
+    const expiresAt = (userId && expiresInDays)
+        ? new Date(Date.now() + expiresInDays * 24 * 60 * 60 * 1000)
+        : null;
+
+    if (alias) {
+        const existingAlias = await prisma.url.findUnique({ where: { shortCode: alias } });
+        if (existingAlias) {
             return { status: 'alias_taken' };
         }
 
-        //custom alias - collision safe
         try {
             const created = await prisma.url.create({
-                data: { longUrl, shortCode: alias, userId: userId ?? null },
+                data: { longUrl, shortCode: alias, userId: userId ?? null, expiresAt },
             });
             await redis.set(alias, longUrl, 'EX', cacheTime);
             return { status: 'success', shortCode: created.shortCode };
         } catch (err) {
-            if (err.code === 'P2002') {
-                return { status: 'alias_taken' };
-            }
+            if (err.code === 'P2002') return { status: 'alias_taken' };
             throw err;
         }
     }
 
-    // auto-generated flow — collision-safe
     let attempts = 0;
-    while (attempts < 5) {
+    while (attempts < 3) {
         const created = await prisma.url.create({
-            data: { longUrl, shortCode: "", userId: userId ?? null },
+            data: { longUrl, shortCode: "", userId: userId ?? null, expiresAt },
         });
         const shortCode = encode(Number(created.id));
 
@@ -43,7 +71,6 @@ const createUrl = async ({ longUrl, userId, alias }) => {
             return { status: 'success', shortCode: updated.shortCode };
         } catch (err) {
             if (err.code === 'P2002') {
-                // if already claimed by a custom alias — clean up and retry
                 await prisma.url.delete({ where: { id: created.id } });
                 attempts++;
                 continue;
@@ -56,20 +83,9 @@ const createUrl = async ({ longUrl, userId, alias }) => {
 };
 
 const findUrl = async ({ shortCode }) => {
-    const cache = await redis.get(shortCode);
-    if (cache) {
-        await incrementClickCount(shortCode);
-        return { longUrl: cache };
-    }
-
     const url = await prisma.url.findUnique({ where: { shortCode } });
-    if (!url) return null;
-
-    await redis.set(shortCode, url.longUrl, 'EX', cacheTime);
-    await incrementClickCount(shortCode);
-
-    return { longUrl: url.longUrl };
-}
+    return url; // null, or full row including expiresAt
+};
 
 const getUrls = async (userId) => {
     const urls = await prisma.url.findMany({ where: { userId } });
@@ -108,11 +124,6 @@ const updateUrl = async (id, userId, longUrl) => {
     return updated;
 }
 
-const incrementClickCount = async (shortCode) => {
-    await prisma.url.update({
-        where: { shortCode },
-        data: { clickCount: { increment: 1 } }
-    });
-};
+
 
 export { createUrl, findUrl, getUrls, deleteUrl, updateUrl };
