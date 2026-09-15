@@ -1,15 +1,13 @@
-import { registerUser, loginUser, logoutUser, refreshToken } from "../services/auth.service.js";
+import { registerUser, loginUser, logoutUser, refreshToken, resendVerificationEmail, verifyEmail } from "../services/auth.service.js";
 import { sendTokenCookies, clearTokenCookies } from '../utils/tokenCookies.js';
 
 const register = async (req, res) => {
     const { name, email, password } = req.body;
-    const { user, accessToken, refreshToken } = await registerUser({ name, email, password });
+    const { user } = await registerUser({ name, email, password });
 
-    sendTokenCookies(res, refreshToken);
     return res.status(201).json({
         success: true,
-        message: "Registration successful",
-        accessToken,
+        message: "Verify your email",
         user: {
             id: user.id,
             name: user.name,
@@ -69,4 +67,24 @@ const refreshAccessToken = async (req, res) => {
     });
 };
 
-export { register, login, getMe, logout, refreshAccessToken };
+const verifyUserEmail = async (req, res) => {
+    const { token } = req.query;
+    await verifyEmail(token);
+
+    return res.status(200).json({
+        success: true,
+        message: "Email verified successfully",
+    });
+};
+
+const resendVerification = async (req, res) => {
+    const { email } = req.body;
+    await resendVerificationEmail(email);
+
+    return res.status(200).json({
+        success: true,
+        message: "If an account with that email exists and isn't verified, a new link has been sent.",
+    });
+};
+
+export { register, login, getMe, logout, refreshAccessToken, verifyUserEmail, resendVerification };
