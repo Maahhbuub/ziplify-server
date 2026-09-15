@@ -6,7 +6,7 @@ const sendVerificationEmail = async (email, token) => {
     const verifyUrl = `${process.env.CLIENT_URL}/auth/verify-email?token=${token}`;
 
     await resend.emails.send({
-        from: 'Ziplify <ziplify@send.mahbub.tech>',
+        from: 'Ziplify <ziplify@mahbub.tech>',
         to: email,
         subject: 'Verify your Ziplify account',
         html: `
