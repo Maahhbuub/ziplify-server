@@ -1,4 +1,5 @@
 import { Resend } from 'resend';
+import { getVerificationEmailHtml } from '../templates/verification-email.js';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -9,10 +10,7 @@ const sendVerificationEmail = async (email, token) => {
         from: 'Ziplify <ziplify@mahbub.tech>',
         to: email,
         subject: 'Verify your Ziplify account',
-        html: `
-            <h2>Welcome to Ziplify</h2>
-            <p>Click <a href="${verifyUrl}">here</a> to verify your email address. This link expires in 24 hours.</p>
-        `,
+        html: getVerificationEmailHtml(verifyUrl),
     });
 };
 
