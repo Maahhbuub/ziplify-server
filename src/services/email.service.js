@@ -11,9 +11,7 @@ const sendVerificationEmail = async (email, token) => {
         subject: 'Verify your Ziplify account',
         html: `
             <h2>Welcome to Ziplify</h2>
-            <p>Click below to verify your email address:</p>
-            <a href="${verifyUrl}">Verify Email</a>
-            <p>This link expires in 24 hours.</p>
+            <p>Click <a href="${verifyUrl}">here</a> to verify your email address. This link expires in 24 hours.</p>
         `,
     });
 };
