@@ -2,7 +2,7 @@ import appError from '../utils/appError.js';
 
 const globalError = (err, req, res, next) => {
     console.log(err); //todo: delete it in production
-    const status = err.statusCode || 500; // fixed: statusCode, not status
+    const status = err.statusCode || 500;
     const message = err.message || 'Internal server error';
 
     res.status(status).json({

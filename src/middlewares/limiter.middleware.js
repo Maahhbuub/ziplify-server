@@ -33,20 +33,20 @@ const resendVerificationLimit = rateLimit({ // ip based limiter
         sendCommand: (...args) => redis.call(...args),
         prefix: 'rl:resend-verification:',
     }),
-    windowMs: 15 * 60 * 1000, // 15 minutes
+    windowMs: 60 * 60 * 1000, // 1 hour
     max: 5,
     message: { success: false, message: 'Too many verification emails sent' },
     standardHeaders: true,
     legacyHeaders: false,
 });
 
-const resendVerificationByEmailLimit = rateLimit({
+const resendVerificationByEmailLimit = rateLimit({ // email based limiter
     store: new RedisStore({
         sendCommand: (...args) => redis.call(...args),
         prefix: 'rl:resend-verification-email:',
     }),
-    windowMs: 60 * 60 * 1000,
-    max: 3,
+    windowMs: 60 * 60 * 1000, // 1 hour
+    max: 2,
     keyGenerator: (req) => {
         const email = req.body?.email?.toLowerCase();
         return email || ipKeyGenerator(req.ip); // normalize IP fallback through their helper
