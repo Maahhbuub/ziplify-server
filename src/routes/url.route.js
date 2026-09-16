@@ -3,7 +3,7 @@ const router = express.Router();
 
 // middleware
 import catchAsync from '../utils/catchAsync';
-import { shortenLimit, redirectLimit } from '../middlewares/url.middleware';
+import { shortenLimit, redirectLimit } from '../middlewares/limiter.middleware';
 import { optionalAuth } from '../middlewares/auth.middleware'
 import { validateRequest } from '../middlewares/validation.middleware';
 import { createUrlSchema } from '../validations/url.validation';

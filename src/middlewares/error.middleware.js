@@ -2,11 +2,13 @@ import appError from '../utils/appError.js';
 
 const globalError = (err, req, res, next) => {
     console.log(err); //todo: delete it in production
-    let { status = 500, message = 'Internal server error' } = err;
+    const status = err.statusCode || 500; // fixed: statusCode, not status
+    const message = err.message || 'Internal server error';
 
     res.status(status).json({
-        status: status,
+        success: false,
         message: message,
+        code: err.code, // pass through custom error codes like EMAIL_NOT_VERIFIED
     });
 };
 
