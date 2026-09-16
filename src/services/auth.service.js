@@ -81,6 +81,8 @@ const verifyEmail = async (token) => {
     }
 
     if (user.verificationTokenExpiresAt < new Date()) {
+        await prisma.user.delete({ where: { id: user.id } });
+
         const error = new Error("Verification link has expired");
         error.statusCode = 400;
         throw error;
