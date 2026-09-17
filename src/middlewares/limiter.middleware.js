@@ -33,7 +33,7 @@ const resendVerificationLimit = rateLimit({ // ip based limiter
         sendCommand: (...args) => redis.call(...args),
         prefix: 'rl:resend-verification:',
     }),
-    windowMs: 60 * 60 * 1000, // 1 hour
+    windowMs: 15 * 60 * 1000, // 1 hour
     max: 5,
     message: { success: false, message: 'Too many verification emails sent' },
     standardHeaders: true,
@@ -46,7 +46,7 @@ const resendVerificationByEmailLimit = rateLimit({ // email based limiter
         prefix: 'rl:resend-verification-email:',
     }),
     windowMs: 60 * 60 * 1000, // 1 hour
-    max: 2,
+    max: 3,
     keyGenerator: (req) => {
         const email = req.body?.email?.toLowerCase();
         return email || ipKeyGenerator(req.ip); // normalize IP fallback through their helper
@@ -56,4 +56,29 @@ const resendVerificationByEmailLimit = rateLimit({ // email based limiter
     legacyHeaders: false,
 });
 
-export { shortenLimit, redirectLimit, resendVerificationLimit, resendVerificationByEmailLimit };
+const forgotPasswordLimit = rateLimit({
+    store: new RedisStore({
+        sendCommand: (...args) => redis.call(...args),
+        prefix: 'rl:forgot-password:',
+    }),
+    windowMs: 15 * 60 * 1000,
+    max: 5,
+    message: { success: false, message: 'Too many password reset requests. Please try again later.' },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+const forgotPasswordByEmailLimit = rateLimit({
+    store: new RedisStore({
+        sendCommand: (...args) => redis.call(...args),
+        prefix: 'rl:forgot-password-email:',
+    }),
+    windowMs: 60 * 60 * 1000,
+    max: 3,
+    keyGenerator: (req) => req.body?.email?.toLowerCase() || ipKeyGenerator(req.ip),
+    message: { success: false, message: 'Too many reset emails sent to this address. Please try again later.' },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+export { shortenLimit, redirectLimit, resendVerificationLimit, resendVerificationByEmailLimit, forgotPasswordLimit, forgotPasswordByEmailLimit };

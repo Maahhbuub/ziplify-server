@@ -16,4 +16,19 @@ const sendVerificationEmail = async (email, token) => {
     });
 };
 
-export { sendVerificationEmail };
+const sendPasswordResetEmail = async (email, token) => {
+    const resetUrl = `${process.env.CLIENT_URL}/auth/reset-password?token=${token}`;
+
+    await resend.emails.send({
+        from: 'Ziplify <ziplify@mahbub.tech>',
+        to: email,
+        subject: 'Reset your Ziplify password',
+        html: `
+            <h2>Password Reset Request</h2>
+            <p>We received a request to reset your password. Click <a href="${resetUrl}">Reset Password</a> to choose a new one:</p>
+            <p>This link expires in 30 minutes. If you didn't request this, you can safely ignore this email.</p>
+        `,
+    });
+};
+
+export { sendVerificationEmail, sendPasswordResetEmail };

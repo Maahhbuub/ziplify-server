@@ -18,6 +18,9 @@ model User {
   verificationToken          String?   @unique
   verificationTokenExpiresAt DateTime?
 
+  resetPasswordToken      String?   @unique
+  resetPasswordExpiresAt  DateTime?
+
   urls Url[]
 
   createdAt DateTime @default(now())

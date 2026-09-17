@@ -1,4 +1,8 @@
-import { registerUser, loginUser, logoutUser, refreshToken, resendVerificationEmail, verifyEmail } from "../services/auth.service.js";
+import {
+    registerUser, loginUser, logoutUser,
+    refreshToken, resendVerificationEmail, verifyEmail,
+    requestPasswordReset, resetPassword
+} from "../services/auth.service.js";
 import { sendTokenCookies, clearTokenCookies } from '../utils/tokenCookies.js';
 
 const register = async (req, res) => {
@@ -83,8 +87,34 @@ const resendVerification = async (req, res) => {
 
     return res.status(200).json({
         success: true,
-        message: "If an account with that email exists and isn't verified, a new link has been sent.",
+        message: "New link has been sent",
     });
 };
 
-export { register, login, getMe, logout, refreshAccessToken, verifyUserEmail, resendVerification };
+const forgotPassword = async (req, res) => {
+    const { email } = req.body;
+    await requestPasswordReset(email);
+
+    return res.status(200).json({
+        success: true,
+        message: "Password reset link has been sent"
+    });
+}
+
+const resetUserPassword = async (req, res) => {
+    const { token } = req.query;
+    const { password } = req.body;
+
+    await resetPassword(token, password);
+
+    return res.status(200).json({
+        success: true,
+        message: "Password reset successfully",
+    });
+};
+
+export {
+    register, login, getMe, logout, refreshAccessToken,
+    verifyUserEmail, resendVerification,
+    forgotPassword, resetUserPassword
+};

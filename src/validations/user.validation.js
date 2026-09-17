@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const createUserSchema = z.object({
+const createUserSchema = z.object({
     body: z.object({
         name: z
             .string({
@@ -27,7 +27,7 @@ export const createUserSchema = z.object({
     }),
 });
 
-export const loginUserSchema = z.object({
+const loginUserSchema = z.object({
     body: z.object({
         email: z
             .string({
@@ -43,3 +43,19 @@ export const loginUserSchema = z.object({
             .min(1, "Password is required"),
     }),
 });
+
+const forgotPasswordSchema = z.object({
+    body: z.object({
+        email: z.string({ required_error: "Email is required" }).email("Please provide a valid email"),
+    })
+});
+
+const resetPasswordSchema = z.object({
+    body: z.object({
+        password: z
+            .string({ required_error: "Password is required" })
+            .min(8, "Password must be at least 8 characters"), // match whatever rule your createUserSchema already uses
+    })
+});
+
+export { createUserSchema, loginUserSchema, forgotPasswordSchema, resetPasswordSchema }

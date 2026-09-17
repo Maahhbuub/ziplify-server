@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 
-function generateVerificationToken() {
+function generateToken() {
     return crypto.randomBytes(32).toString('hex');
 }
 
-export { generateVerificationToken };
+export { generateToken };
