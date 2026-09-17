@@ -22,7 +22,7 @@ const createShortUrl = async (req, res) => {
     return res.status(result.reused ? 200 : 201).json({
         success: true,
         message: result.reused ? "You've already shortened this link" : "Link created successfully",
-        code: result.shortCode,
+        url: result.url,
         user: userId,
     });
 };

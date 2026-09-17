@@ -26,10 +26,10 @@ const createUrl = async ({ longUrl, userId, alias, expiresInDays }) => {
                     where: { id: existing.id },
                     data: { expiresAt: newExpiresAt },
                 });
-                return { status: 'success', shortCode: updated.shortCode, reused: true };
+                return { status: 'success', url: updated, reused: true };
             }
 
-            return { status: 'success', shortCode: existing.shortCode, reused: true };
+            return { status: 'success', url: existing, reused: true };
         }
     }
 
@@ -48,7 +48,7 @@ const createUrl = async ({ longUrl, userId, alias, expiresInDays }) => {
                 data: { longUrl, shortCode: alias, userId: userId ?? null, expiresAt },
             });
             await redis.set(alias, longUrl, 'EX', cacheTime);
-            return { status: 'success', shortCode: created.shortCode };
+            return { status: 'success', url: created };
         } catch (err) {
             if (err.code === 'P2002') return { status: 'alias_taken' };
             throw err;
@@ -68,7 +68,7 @@ const createUrl = async ({ longUrl, userId, alias, expiresInDays }) => {
                 data: { shortCode },
             });
             await redis.set(shortCode, longUrl, 'EX', cacheTime);
-            return { status: 'success', shortCode: updated.shortCode };
+            return { status: 'success', url: updated };
         } catch (err) {
             if (err.code === 'P2002') {
                 await prisma.url.delete({ where: { id: created.id } });
