@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-const RESERVED_ALIASES = ['auth', 'dashboard', 'not-found', 'api', 'login', 'signup', 'admin', 'static'];
+const RESERVED_ALIASES = ['auth', 'dashboard', 'not-found', 'api', 'login', 'signup', 'admin', 'static', 'forgot', 'verify-email', 'reset-password', 'my-links', 'profile', 'analytics', 'link-expired'];
 
 const createUrlSchema = z.object({
     body: z.object({
