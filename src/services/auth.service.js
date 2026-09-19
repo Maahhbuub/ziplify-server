@@ -32,7 +32,7 @@ const registerUser = async ({ name, email, password }) => {
     return { user };
 };
 
-const loginUser = async ({ email, password }) => {
+const loginUser = async ({ email, password, userAgent }) => {
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
         const error = new Error("Invalid email or password");
@@ -48,7 +48,7 @@ const loginUser = async ({ email, password }) => {
     }
 
     if (!user.emailVerified) {
-        const error = new Error("Please verify your email");
+        const error = new Error("Please verify your email before logging in");
         error.statusCode = 403;
         error.code = "EMAIL_NOT_VERIFIED";
         throw error;
@@ -57,9 +57,13 @@ const loginUser = async ({ email, password }) => {
     const accessToken = generateAccessToken(user.id);
     const refreshToken = generateRefreshToken(user.id);
 
-    await prisma.user.update({
-        where: { id: user.id },
-        data: { refreshToken },
+    await prisma.session.create({
+        data: {
+            refreshToken,
+            userId: user.id,
+            userAgent,
+            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        },
     });
 
     return { user, accessToken, refreshToken };
@@ -157,38 +161,37 @@ const resetPassword = async (token, newPassword) => {
             password: hashedPassword,
             resetPasswordToken: null,
             resetPasswordExpiresAt: null,
-            refreshToken: null, // logout from all device
         },
     });
-}
+
+    // logout from all devices
+    await prisma.session.deleteMany({ where: { userId: user.id } });
+};
 
 const logoutUser = async (refreshToken) => {
     if (!refreshToken) return;
-
-    const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
-    await prisma.user.update({
-        where: { id: decoded.id },
-        data: { refreshToken: null },
-    });
+    await prisma.session.deleteMany({ where: { refreshToken } });
 };
 
-const refreshToken = async (refreshToken) => {
-    const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
+const refreshToken = async (incomingRefreshToken) => {
+    const decoded = jwt.verify(incomingRefreshToken, process.env.REFRESH_TOKEN_SECRET);
 
-    const user = await prisma.user.findUnique({ where: { id: decoded.id } });
-    if (!user) {
-        const error = new Error("User not found");
-        error.statusCode = 401;
-        throw error;
-    }
+    const session = await prisma.session.findUnique({ where: { refreshToken: incomingRefreshToken } });
 
-    if (user.refreshToken !== refreshToken) {
+    if (!session || session.userId !== decoded.id) {
         const error = new Error("Invalid refresh token");
         error.statusCode = 401;
         throw error;
     }
 
-    const accessToken = generateAccessToken(user.id);
+    if (session.expiresAt < new Date()) {
+        await prisma.session.delete({ where: { id: session.id } }); // clean up expired session
+        const error = new Error("Session expired, please log in again");
+        error.statusCode = 401;
+        throw error;
+    }
+
+    const accessToken = generateAccessToken(decoded.id);
     return { accessToken };
 };
 

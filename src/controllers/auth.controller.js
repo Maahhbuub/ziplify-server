@@ -22,7 +22,8 @@ const register = async (req, res) => {
 
 const login = async (req, res) => {
     const { email, password } = req.body;
-    const { user, accessToken, refreshToken } = await loginUser({ email, password });
+    const userAgent = req.headers['user-agent'];
+    const { user, accessToken, refreshToken } = await loginUser({ email, password, userAgent });
 
     sendTokenCookies(res, refreshToken);
     return res.status(200).json({
