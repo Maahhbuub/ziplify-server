@@ -1,69 +1,79 @@
 # Ziplify — Full-Stack URL Shortener
 
+**Live:** https://ziplify.vercel.app
+**Frontend repo:** github.com/Maahhbuub/[frontend-repo]
+**Backend repo:** github.com/Maahhbuub/shortener-server
+
+---
+
 ## Overview
 
-Ziplify is a production-deployed URL shortener built to explore real-world system design concerns: efficient ID generation, cache-aside architecture, distributed rate limiting, and cross-service deployment. The project is split into two independently deployed services — a React frontend on Vercel and a Node.js/Express backend on Render — connected via edge rewrites so short links resolve seamlessly under a single custom domain.
+Ziplify is a production-deployed URL shortener built to explore real-world system design concerns: efficient ID generation, cache-aside architecture, distributed rate limiting, authentication and session management, and cross-service deployment. What began as a simple shorten/redirect service grew into a full product — accounts, email verification, password reset, custom aliases, link expiration, and a dashboard for managing owned links — while keeping the original public shortening flow fully backward-compatible for anonymous users throughout.
+
+The project is split into two independently deployed services — a React frontend on Vercel and a Node.js/Express backend on Railway — connected via edge rewrites so short links resolve seamlessly under a single custom domain.
+
+The dashboard now spans several pages (link management, profile, analytics), all nested under `/my-dashboard/*`.
 
 ---
 
 ## Architecture
 
 **Frontend — Vercel**
-- React + Vite, CSS Modules, `lucide-react`, `react-hot-toast`
+- React + Vite, CSS Modules (no Tailwind — deliberate choice for scoped, framework-free styling), `lucide-react`, `react-hot-toast`, `react-router-dom`
+- Route layout split into three layouts — `MainLayout` (public shortener pages), `AuthLayout` (login/signup/forgot-password/verify-email/reset-password), `DashboardLayout` (`/my-dashboard`, `/my-dashboard/my-links`, `/my-dashboard/profile`, `/my-dashboard/analytics`) — each wrapping its child routes via `<Outlet />`
+- `GuestRoute` / `PrivateRoute` wrappers gate auth-only and guest-only pages
 - `vercel.json` rewrites:
-  - short-code-shaped paths → proxied to Render backend
+  - short-code-shaped paths → proxied to the Railway backend
+  - every dashboard route lives under the `/my-dashboard/*` prefix (renamed from a bare `/dashboard`), and `/not-found`/`/link-expired` already contain a hyphen — so none of the current app routes can match the short-code pattern, no exclusion list required
   - everything else → SPA fallback to `index.html`
 
-**Backend — Render**
-- Express + javascript (run via `tsx`)
-- `POST /` — shorten a URL
-- `GET /:shortCode` — look up and 302 redirect
+**Backend — Railway** (migrated from Render)
+- Express + JavaScript (ESM, `"type": "module"`), run via `tsx` at runtime
+- Layered structure: routes → controllers → services, with services kept `req`/`res`-agnostic so they stay unit-testable in isolation
+- Key endpoints:
+  - `POST /` — shorten a URL (public, optionally attaches the logged-in user)
+  - `GET /:shortCode` — look up and 302 redirect, or redirect to `/not-found` / `/link-expired`
+  - `POST /auth/register`, `/login`, `/logout`, `/refresh-token`, `/verify-email`, `/resend-verification`, `/forgot-password`, `/reset-password`
+  - `GET /dashboard/urls`, `PATCH /dashboard/urls/:id`, `DELETE /dashboard/urls/:id` — protected, ownership-checked (API path is unrelated to the frontend's `/my-dashboard` route naming — no collision risk between the two)
 
 **Data layer**
-- **PostgreSQL (Neon)** via Prisma ORM — `urls` table, `BIGSERIAL` auto-increment id
-- **Redis (Redis Cloud)** via `ioredis` — short URL cache + rate limit counters
+- **PostgreSQL (Neon)** via Prisma ORM — `User`, `Session`, `Url` models
+- **Redis (Redis Cloud)** via `ioredis` — short URL cache, rate-limit counters
 
-**Request flow**
-1. User visits `https://ziplify.vercel.app/ab21`
-2. Vercel's rewrite matches the short-code pattern and proxies the request to the Render backend
-3. Render checks Redis first (cache-aside); on a miss, queries Postgres via Prisma and populates Redis
-4. Render responds with a `302` redirect to the long URL
-5. On invalid codes, Render redirects to `/not-found` — a path deliberately excluded from the short-code rewrite pattern, so it falls through to the SPA fallback and renders React's actual 404 page instead of looping back through the proxy
+**Email — Resend**
+- Transactional email for account verification and password reset links
 
-**Why two separate repos and deployments, not a monorepo:**
-- Independent deploy pipelines — a frontend styling change doesn't trigger a backend redeploy, and vice versa
-- Different release cadences — UI iterates faster than core API logic
-- Cleaner scaling path — the backend could serve multiple frontends (web, extension, CLI) without restructuring
-- Trade-off: no shared type contracts between frontend/backend, which caused a real bug during development (see Issues Resolved)
+**Request flow (shorten + redirect)**
+1. User visits `ziplify.vercel.app/ab21`
+2. Vercel's rewrite matches the short-code pattern (excluding known app routes) and proxies to the Railway backend
+3. Backend checks Redis first (cache-aside); on a miss, queries Postgres via Prisma and populates Redis
+4. Backend checks `expiresAt`; if expired, redirects to `/link-expired` instead of the destination
+5. Otherwise responds with a `302` redirect to the long URL
 
 ---
 
-## Tech Stack
+## Data Model
 
-**Frontend**
-- React + Vite
-- CSS Modules (no Tailwind — deliberate choice for scoped, framework-free styling)
-- `lucide-react` for icons
-- `react-hot-toast` for notifications
-- `react-router-dom` for client-side routing
-- Axios for API calls
+```
+User
+├── id, name, email (unique), password (bcrypt hash)
+├── emailVerified, verificationToken (unique), verificationTokenExpiresAt
+├── resetPasswordToken (unique), resetPasswordExpiresAt
+├── urls        → Url[]   (one-to-many, links this user owns)
+└── sessions    → Session[]  (one-to-many, one row per logged-in device)
 
-**Backend**
-- Node.js + Express
-- TypeScript (mixed with JS, run via `tsx` at runtime rather than a compiled build step)
-- Prisma ORM
-- `ioredis` for Redis client
-- `express-rate-limit` + `rate-limit-redis` for distributed rate limiting
-- `zod` for validation
-- `cors`, `cookie-parser`, `jsonwebtoken`, `bcrypt` (auth-ready, if extended)
+Session
+├── id, refreshToken (unique)
+├── userId → User
+├── userAgent, createdAt, expiresAt
+└── index on userId
 
-**Data layer**
-- **PostgreSQL** — hosted on Neon
-- **Redis** — hosted on Redis Cloud
-
-**Deployment**
-- **Frontend:** Vercel
-- **Backend:** Render
+Url
+├── id, shortCode (unique), longUrl, expiresAt (nullable), clickCount
+├── userId (nullable) → User
+├── index on longUrl (dedupe lookups)
+└── index on userId (dashboard "my links" queries)
+```
 
 ---
 
@@ -71,132 +81,134 @@ Ziplify is a production-deployed URL shortener built to explore real-world syste
 
 ### 1. Short code generation: Base62 encoding of a Postgres auto-increment ID
 
-The project went through several iterations before settling on this approach:
+Iterated through several approaches before settling here:
 
 | Approach considered | Why it was rejected / accepted |
 |---|---|
-| Hash the URL (MD5/SHA256), truncate | Requires collision handling (check + retry), adds complexity for no real benefit at this scale |
-| Random string generation (nanoid) + collision check | Simple, but requires a DB read before every write to confirm uniqueness |
-| MongoDB with manual counter collection | Works, but the counter is a single point of write contention requiring manual atomic `$inc` handling |
-| **Postgres `BIGSERIAL` + Base62 encoding (chosen)** | Postgres sequences are atomic and gap-tolerant by default — no manual counter needed, no collision risk, one clean encode step |
+| Hash the URL, truncate | Needs collision handling for no real benefit at this scale |
+| Random string + collision check | Requires a DB read before every write |
+| MongoDB with manual counter collection | Works, but the counter is a single point of write contention requiring hand-rolled atomic `$inc` |
+| **Postgres `BIGSERIAL` + Base62 (chosen)** | Sequences are atomic and effectively gap-tolerant by default — no manual counter, no collision risk on the auto-generated path |
 
-The project initially started with MongoDB, then pivoted to PostgreSQL specifically because `BIGSERIAL` eliminates the need for a hand-rolled, atomically-incremented counter document — a good example of recognizing that the database choice should follow the access pattern, not the other way around.
+**Known trade-off:** sequential IDs are technically enumerable. Acceptable at this project's scope.
+
+**Scaling trade-off:** a single auto-increment counter is a write bottleneck at extreme scale — the standard fix is batch ID allocation or sharded counters (the same class of problem Twitter's Snowflake solves).
+
+### 2. Custom aliases, and the collision bug they exposed
+
+Logged-in users can request a specific alias (`ziplify.vercel.app/my-brand`) instead of an auto-generated code. This surfaced a real bug worth keeping as a case study: a custom alias like `"123"` can collide with a *future* auto-generated Base62 code, since both draw from the same character set and namespace.
+
+The original implementation didn't handle this — a collision left an **orphaned row with an empty `shortCode`** in Postgres and **permanently burned an auto-increment ID**, since the `update` step failed after the `create` step had already succeeded. The fix: catch the unique-constraint violation (Prisma error `P2002`), delete the orphaned row, and retry with a fresh ID:
 
 ```js
-const ALPHABET = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
-const BASE = ALPHABET.length; // 62
-
-function encode(num) {
-    if (num === 0) return ALPHABET[0];
-    let result = '';
-    while (num > 0) {
-        result = ALPHABET[num % BASE] + result;
-        num = Math.floor(num / BASE);
+try {
+    const updated = await prisma.url.update({ where: { id: created.id }, data: { shortCode } });
+    // ...
+} catch (err) {
+    if (err.code === 'P2002') {
+        await prisma.url.delete({ where: { id: created.id } });
+        attempts++;
+        continue; // retry with the next auto-increment id
     }
-    return result;
+    throw err;
 }
 ```
 
-**Known trade-off:** sequential IDs are technically enumerable/predictable. Acceptable for this project's scope; a production system handling sensitive links might XOR or bit-shuffle the sequence before encoding.
+Aliases are restricted to alphanumeric characters, 3–20 length, and checked against a reserved-word list (`dashboard`, `login`, `auth`, etc.) so a claimed alias can never shadow a real application route.
 
-**Scaling trade-off (interview talking point):** a single auto-increment counter is a write bottleneck at extreme scale. The standard fix is batch ID allocation (app servers reserve ranges of IDs at once) or sharded counters — the same class of problem Twitter's Snowflake ID system solves.
+### 3. Per-user link deduplication, scoped correctly
 
-### 2. Cache-aside pattern for the redirect hot path
+If a logged-in user shortens a URL they've already shortened, they get their existing short code back rather than a duplicate row — but only when they *didn't* request a specific custom alias. Requesting an alias always creates a new link, since an explicit alias signals distinct intent (e.g., two campaigns pointing at the same destination). Anonymous users are never deduplicated, since there's no stable identity to scope the check to. Expired links are excluded from the match, so re-shortening a URL whose previous link has lapsed correctly creates a fresh one.
 
-Reads (redirects) vastly outnumber writes (shortens) in any URL shortener, so the redirect path is the one worth optimizing:
+If the new shorten request includes an expiration and matches an existing link, that link's expiration is updated to the new value — but only when explicitly provided; omitting it leaves the existing expiration untouched rather than silently clearing it.
+
+### 4. Cache-aside pattern for the redirect hot path
 
 ```js
-const { shortCode } = req.params;
-
 const cachedUrl = await redis.get(shortCode);
 if (cachedUrl) {
     incrementClickAsync(shortCode);
     return res.redirect(302, cachedUrl);
 }
 
-const url = await findUrl({ shortCode });
-if (!url) {
-    return res.redirect(302, `${process.env.CLIENT_URL}/not-found`);
-}
+const url = await findUrl({ shortCode }); // pure DB lookup, no side effects
 
-await redis.set(shortCode, url.longUrl, { EX: 3600 });
+if (!url) return res.redirect(302, `${CLIENT_URL}/not-found`);
+if (url.expiresAt && url.expiresAt < new Date()) return res.redirect(302, `${CLIENT_URL}/link-expired`);
+
+await redis.set(shortCode, url.longUrl, 'EX', cacheTime);
 incrementClickAsync(shortCode);
 return res.redirect(302, url.longUrl);
 ```
 
-- Cache-miss path populates Redis for next time
-- Click count increments are fire-and-forget (don't block the redirect on a write)
-- Cache invalidation follows the standard "delete on write" rule — any update/delete to a URL clears its Redis key rather than trying to update it in place
+**Known limitation, accepted deliberately:** the Redis TTL isn't currently capped to `expiresAt`, so an already-expired link could theoretically still be served from a warm cache for up to `cacheTime` seconds after its real expiration, until that cache key naturally falls out. The redirect route's DB path always enforces expiration correctly; only the cache-hit window has this gap. Flagged as a deferred fix, not an oversight.
 
-### 3. Distributed rate limiting
+### 5. Multi-device sessions
 
-Two independent limiters, both backed by Redis (not in-memory) so limits hold correctly across multiple server instances rather than resetting per-instance:
+The original design stored a single `refreshToken` directly on `User`, which meant logging in on a second device silently invalidated the first device's session (each login overwrote the one shared field). Fixed by extracting sessions into their own model — one `Session` row per device/login, each with its own `refreshToken`, `userAgent`, and `expiresAt`. This makes "log out this device" (`deleteMany({ where: { refreshToken } })`) and "log out everywhere" (`deleteMany({ where: { userId } })`, used on password reset) both correct, explicit operations instead of overloading a single field.
 
-```js
-const shortenLimit = rateLimit({
-    store: new RedisStore({
-        sendCommand: (...args) => redis.call(...args),
-        prefix: 'rl:shorten:',
-    }),
-    windowMs: 15 * 60 * 1000,
-    max: 20,
-});
+### 6. Mandatory email verification
 
-const redirectLimit = rateLimit({
-    store: new RedisStore({
-        sendCommand: (...args) => redis.call(...args),
-        prefix: 'rl:redirect:',
-    }),
-    windowMs: 1 * 60 * 1000,
-    max: 100,
-    ipv6Subnet: 56,
-});
-```
+Registration creates the account and sends a verification email but issues no tokens — the account is unusable until verified. Login checks `emailVerified` and throws a distinct `403` with `error.code = "EMAIL_NOT_VERIFIED"` so the frontend can offer a "resend verification" action instead of a generic failure. The `protect` middleware independently re-checks `emailVerified` on every authenticated request as defense in depth, not just at login time.
 
-- Separate prefixes per route for clean debugging (`redis-cli KEYS rl:shorten:*`)
-- Different limits reflect different usage patterns — shortening is a deliberate low-frequency action, redirects are frequent and bursty
-- Algorithm: **fixed window counter** — simple and cheap, with a known trade-off (boundary bursts: a client can send up to 2x the limit across a window boundary). Sliding window or token bucket would smooth this out at added complexity; fixed window is an acceptable choice at this scale.
+Verification and password-reset tokens are generated with `crypto.randomBytes(32)` — cryptographically unguessable, unlike the sequential Base62 short codes, since these tokens directly grant account access or identity confirmation. Both are single-use (cleared on success) and time-limited (24h for verification, 30 minutes for password reset — shorter, since a reset token is higher-stakes if intercepted).
 
-### 4. Single-domain UX via Vercel rewrites
+Resend-verification and forgot-password endpoints never reveal whether an email exists in the system — both respond identically regardless, to prevent account enumeration.
 
-The frontend (Vercel) and backend (Render) are fully separate deployments, but short links needed to appear on one domain rather than exposing the Render URL to end users.
+### 7. Distributed rate limiting
+
+Redis-backed (not in-memory) so limits hold correctly across multiple server instances. Separate limiters per concern:
+
+| Limiter | Window | Max | Key |
+|---|---|---|---|
+| Shorten | 15 min | 20 | IP |
+| Redirect | 1 min | 100 | IP (IPv6-subnet aware) |
+| Resend verification | 15 min | 5 | IP |
+| Resend verification | 1 hour | 3 | Email (normalized lowercase) |
+| Forgot password | 15 min | 5 | IP |
+| Forgot password | 1 hour | 3 | Email |
+
+Email-keyed limiters use `express-rate-limit`'s `ipKeyGenerator` helper for the IP fallback case, required for correct IPv6 handling — using a raw `req.ip` string directly is flagged by the library itself as unsafe (multiple textual representations of the same IPv6 address could otherwise bypass the limit).
+
+**Algorithm:** fixed window counter — simple and cheap, with a known boundary-burst trade-off (a client can send up to ~2x the limit across a window boundary). Acceptable at this scale; sliding window or token bucket would close the gap at added complexity.
+
+### 8. Single-domain UX via Vercel rewrites, and the collision it caused twice
 
 ```json
 {
   "rewrites": [
-    { "source": "/([a-zA-Z0-9]{1,7})", "destination": "https://shortener-server.onrender.com/$1" },
+    { "source": "/([a-zA-Z0-9]{1,10})", "destination": "https://ziplify-server-production.up.railway.app/$1" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
 ```
 
-- First rule: any path matching the short-code shape gets transparently proxied to the Render backend, which performs the actual 302 redirect
-- Second rule: SPA fallback — anything else (app routes, invalid short codes redirected to `/not-found`) falls through to `index.html` so React Router can take over client-side
-- Order matters — Vercel evaluates rewrites top-to-bottom, first match wins
+This bit twice in practice: once when `/login` (5 chars) was first added, and again when the short-code length cap was widened to 10 and a bare `/dashboard` (9 chars) started colliding — both times manifesting specifically on a hard refresh or direct URL visit (client-side `<Link>` navigation never hits Vercel's rewrite layer at all, only a fresh HTTP request does, which is why the bug was invisible during normal in-app navigation and only appeared on refresh).
 
-**Known constraint:** the short-code regex would also match any future short-named frontend route (e.g. `/about`). Not an issue at current scope (only `/` exists), but would need explicit exclusion rules if more pages are added later.
+Two structural fixes closed this permanently, rather than patching it with a growing per-route exclusion list:
+1. **Every dashboard route was renamed under a multi-segment prefix** — `/dashboard` → `/my-dashboard`, with all sub-pages (`my-links`, `profile`, `analytics`) nested under it. A path containing a `/` can never match the single-segment short-code regex, regardless of length.
+2. **Custom aliases were restricted to alphanumeric characters only** (no hyphens) — so any route name containing a hyphen, like `/not-found` and `/link-expired`, is also structurally guaranteed to never collide with a short code.
+
+With both in place, no current or reasonably-named future route needs an explicit exclusion rule in `vercel.json` at all.
 
 ---
 
 ## Performance
 
-Measured using `autocannon`, comparing cache-miss (first hit, cold from Postgres) vs. cache-hit (second hit, served from Redis) on freshly created, never-before-cached short codes — averaged across three independent trials to control for noise:
+Measured with `autocannon`, comparing cache-miss vs. cache-hit latency on freshly created, never-cached short codes, averaged across five independent trials — tested with the backend running locally but pointed at the real production databases (Neon + Redis Cloud), specifically to isolate database/cache latency from hosting-tier noise (initially Render's free-tier single-worker queueing and cold starts; later a genuine Postgres/backend region mismatch that was independently found and fixed, roughly halving both numbers once corrected).
 
 | Trial | Cache Miss | Cache Hit |
 |---|---|---|
-| 1 | 685 ms | 377 ms |
-| 2 | 680 ms | 373 ms |
-| 3 | 682 ms | 378 ms |
-| **Average** | **682.3 ms** | **376 ms** |
+| 1 | 300 ms | 179 ms |
+| 2 | 281 ms | 178 ms |
+| 3 | 286 ms | 173 ms |
+| 4 | 285 ms | 176 ms |
+| 5 | 279 ms | 172 ms |
+| **Average** | **286.2 ms** | **175.6 ms** |
 
-**Result: ~45% latency reduction** (682.3ms → 376ms) from Redis caching.
+**Result: ~39% latency reduction** from Redis caching.
 
-**Methodology notes:**
-- Tests were run against the backend running locally but pointed at the real production databases (Neon + Redis Cloud), to isolate database/cache latency from Render's free-tier hosting overhead (single-worker concurrency limits, cold starts)
-- Each trial used a brand-new short code with no prior cache entry, guaranteeing a genuine cache miss on first hit
-- Low variance across trials (within 5ms) supports that this is a real, repeatable effect rather than noise
-
-**Honest caveat, worth stating in interviews:** even the cache-hit path (376ms) is dominated by network round-trip to a remote Redis Cloud instance, not Redis's own processing time (which is sub-millisecond). Colocating the app server and Redis instance in the same region would reduce this further — a natural "how would you optimize this more" answer.
+**Honest caveat:** even the cache-hit path is dominated by network round-trip to a remote Redis Cloud instance, not Redis's own processing time (sub-millisecond). Both the miss and hit paths still pay the same free-tier Neon/Redis Cloud network tax — the relative improvement is the meaningful, controlled result; the absolute numbers would differ on dedicated infrastructure.
 
 ---
 
@@ -204,20 +216,43 @@ Measured using `autocannon`, comparing cache-miss (first hit, cold from Postgres
 
 | Layer | Provider | Notes |
 |---|---|---|
-| Frontend | Vercel | Auto-deploys on push to `main`; env vars baked in at build time |
-| Backend | Render | Free tier — single worker (`WEB_CONCURRENCY=1`), cold starts after ~15 min idle |
-| Database | Neon (PostgreSQL) | Connection pooled via `-pooler` endpoint, `sslmode=verify-full` |
+| Frontend | Vercel | Auto-deploys on push; env vars baked in at build time |
+| Backend | Railway (migrated from Render) | |
+| Database | Neon (PostgreSQL) | Connection pooled, `sslmode=verify-full` |
 | Cache | Redis Cloud | Free tier, 30MB |
+| Email | Resend | Sandbox mode sends only to the account owner's own address until a domain is verified |
 
-**Environment variable strategy:** all cross-service URLs (`CLIENT_URL`, `DATABASE_URL`, `REDIS_URL`, `VITE_API_URL`, `VITE_API_BASE_URL`) are environment-specific — same variable name, different value per environment (local Docker/`.env` vs. Render/Vercel dashboards) — so no code changes are needed when moving between dev and production.
+All cross-service URLs (`CLIENT_URL`, `DATABASE_URL`, `REDIS_URL`, `VITE_API_URL`, `VITE_API_BASE_URL`, `RESEND_API_KEY`) are environment-specific — same variable name, different value per environment — so no code changes are needed moving between local dev and production.
 
+---
+
+## Issues Resolved During Development
+
+Kept as a running log, since working through these is arguably more representative of engineering skill than the fact that the happy path works:
+
+1. **CORS origin mismatch (trailing slash)** — `Access-Control-Allow-Origin` didn't match the browser's actual origin because `CLIENT_URL` had a trailing slash. CORS requires an exact string match; no normalization applied.
+2. **`tsx: not found` in production** — was in `devDependencies`; Railway/Render's production install skips those. Moved to `dependencies`, since a couple of files (the Prisma client wrapper, config) are `.ts` even though the majority of the codebase is plain JavaScript — switching to plain `node` broke module resolution on those files.
+3. **Wrong platform start command** — dashboard-level start command settings override `package.json` defaults and had to be set explicitly.
+4. **Invalid redirect status code** — `res.redirect(404, url)` doesn't work; browsers only auto-follow 3xx codes.
+5. **Infinite redirect loop** — routing a "not found" fallback to a path that itself matched the short-code rewrite pattern caused it to loop indefinitely. Fixed by using a path containing a non-alphanumeric character.
+6. **Vercel platform 404 vs. React 404** — needed an explicit SPA-fallback rewrite (`/(.*) → /index.html`) or client-side routes 404'd at the platform level before React ever loaded.
+7. **`/login`, then later `/dashboard`, silently proxied to the backend** — both were short/alphanumeric enough to match the short-code rewrite pattern, and both broke specifically on refresh, not on in-app navigation. Root-caused twice before two structural fixes were applied: renaming every dashboard route under the multi-segment `/my-dashboard/*` prefix, and restricting custom aliases to alphanumeric-only so hyphenated route names are also immune.
+8. **Custom alias / auto-generated code collision** — see Design Decision #2 above; left an orphaned DB row and burned a sequence value before the retry-on-conflict fix.
+9. **Database/backend region mismatch** — Neon and the backend host were in different regions, roughly doubling both cache-hit and cache-miss latency until identified via repeated load testing and corrected.
+10. **Single shared `refreshToken` field broke multi-device login** — logging in on a second device silently logged out the first, since every login overwrote the same field. Fixed by extracting sessions into their own model (Design Decision #5).
+11. **`express-rate-limit` IPv6 key-generator validation error** — a custom `keyGenerator` using raw `req.ip` as a fallback was rejected by the library itself; fixed using its `ipKeyGenerator` helper to normalize IPv6 addresses correctly.
+12. **Service functions reaching into `req` directly** — occurred twice (`optionalAuth`'s original draft, then `loginUser` reading `req.headers['user-agent']` directly) — `req`/`res` belong to controllers only; services must receive plain arguments so they stay testable in isolation.
+13. **`throw Error` instead of `throw error`** — a one-character typo that discarded the custom error's `message`/`statusCode`/`code` entirely, surfacing as a cryptic `[Function: Error] { stackTraceLimit: 10 }` log instead of a readable error.
+
+---
 
 ## Possible Future Improvements
 
-- Custom short domain instead of relying on the Vercel/Render split
-- Click analytics dashboard (referrer, timestamp, geo — `clickCount` already tracked)
-- Custom aliases and link expiration UI
-- Auth (JWT dependencies already present, not yet wired up)
-- Sliding-window or token-bucket rate limiting to smooth boundary bursts
-- Shared type contract (OpenAPI spec or shared package) between frontend and backend to prevent the field-mismatch class of bug
+- Automated test suite (unit tests for Base62 encode/decode, alias-collision retry, dedupe-with-expiration logic; integration tests for the auth flow) and a CI pipeline running them on every push — the most commonly-missing piece for a portfolio project at this stage
+- Cap the Redis TTL to `expiresAt` so an expired link can never be served from a stale cache entry, closing the deferred gap from Design Decision #4
+- "Manage devices" endpoints (`GET /auth/sessions`, `DELETE /auth/sessions/:id`) — natural now that sessions are their own table
+- Structured logging (e.g. `pino`) with request IDs, replacing `console.log(err)`
+- `helmet` and a full CORS/security audit
+- A `/health` endpoint wired to a free uptime monitor
+- Click analytics dashboard (referrer, timestamp, geo) — would need a separate `Click` table for per-event logging beyond the current aggregate `clickCount`
 - Batch ID allocation if traffic ever approached a scale where the single Postgres sequence became a write bottleneck
