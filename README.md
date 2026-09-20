@@ -1,8 +1,6 @@
 # Ziplify — Full-Stack URL Shortener
 
 **Live:** https://ziplify.vercel.app
-**Frontend repo:** github.com/Maahhbuub/[frontend-repo]
-**Backend repo:** github.com/Maahhbuub/shortener-server
 
 ---
 
