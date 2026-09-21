@@ -58,4 +58,23 @@ const resetPasswordSchema = z.object({
     })
 });
 
-export { createUserSchema, loginUserSchema, forgotPasswordSchema, resetPasswordSchema }
+const updateProfileSchema = z.object({
+    body: z.object({
+        name: z.string({ required_error: "Name is required" }).trim().min(2, "Name must be at least 2 characters").max(50, "Name is too long"),
+    })
+});
+
+const changePasswordSchema = z.object({
+    body: z.object({
+        currentPassword: z.string({ required_error: "Current password is required" }),
+        newPassword: z.string({ required_error: "New password is required" }).min(6, "Password must be at least 6 characters"),
+    })
+});
+
+const deleteAccountSchema = z.object({
+    body: z.object({
+        password: z.string({ required_error: "Password is required to delete your account" }),
+    })
+});
+
+export { createUserSchema, loginUserSchema, forgotPasswordSchema, resetPasswordSchema, updateProfileSchema, changePasswordSchema, deleteAccountSchema }

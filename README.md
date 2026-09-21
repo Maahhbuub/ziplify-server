@@ -1,7 +1,9 @@
 # Ziplify — Full-Stack URL Shortener
-
+ 
 **Live:** https://ziplify.vercel.app
-
+**Frontend repo:** [github.com/Maahhbuub/ziplify-web](https://github.com/Maahhbuub/ziplify-web)
+**Backend repo:** [github.com/Maahhbuub/ziplify-server](https://github.com/Maahhbuub/ziplify-server)
+ 
 ---
 
 ## Overview
@@ -32,6 +34,7 @@ The dashboard now spans several pages (link management, profile, analytics), all
   - `POST /` — shorten a URL (public, optionally attaches the logged-in user)
   - `GET /:shortCode` — look up and 302 redirect, or redirect to `/not-found` / `/link-expired`
   - `POST /auth/register`, `/login`, `/logout`, `/refresh-token`, `/verify-email`, `/resend-verification`, `/forgot-password`, `/reset-password`
+  - `GET /user/me`, `PATCH /user/profile`, `POST /user/change-password`, `DELETE /user/account` — protected, self-service account management
   - `GET /dashboard/urls`, `PATCH /dashboard/urls/:id`, `DELETE /dashboard/urls/:id` — protected, ownership-checked (API path is unrelated to the frontend's `/my-dashboard` route naming — no collision risk between the two)
 
 **Data layer**
@@ -189,6 +192,12 @@ Two structural fixes closed this permanently, rather than patching it with a gro
 
 With both in place, no current or reasonably-named future route needs an explicit exclusion rule in `vercel.json` at all.
 
+### 9. Separating `auth` from `user` on the backend
+
+Account-management operations (update name, change password, delete account) were initially drafted inside `auth.service.js`/`auth.controller.js`, alongside registration and login. Split into their own `user.service.js` / `user.controller.js` / `user.route.js` (mounted at `/user`) once the distinction became clear: **auth** operations establish or refresh an identity and are mostly public or token-gated (register, login, verify-email, reset-password); **user** operations act on an *already-proven* identity and are uniformly `protect`-gated (get/update profile, change password, delete account). `getMe` moved from `auth` to `user` for the same reason — it's "get my own account," not an authentication step.
+
+Password changes revoke every session *except* the one making the request, so the user isn't logged out of their own current device but every other session is forced to re-authenticate — the same reasoning as the "log out everywhere" behavior on password reset, just scoped to leave the active session alive. Account deletion requires re-entering the current password, since it's an irreversible action; deleting the `User` row cascades to `Session` and `Url` via the schema's `onDelete: Cascade`, so a deleted account's short links stop resolving immediately — a deliberate data-retention trade-off, not an oversight (the alternative, `onDelete: SetNull` on `Url.user`, would keep the links alive as anonymous after deletion).
+
 ---
 
 ## Performance
@@ -240,7 +249,6 @@ Kept as a running log, since working through these is arguably more representati
 10. **Single shared `refreshToken` field broke multi-device login** — logging in on a second device silently logged out the first, since every login overwrote the same field. Fixed by extracting sessions into their own model (Design Decision #5).
 11. **`express-rate-limit` IPv6 key-generator validation error** — a custom `keyGenerator` using raw `req.ip` as a fallback was rejected by the library itself; fixed using its `ipKeyGenerator` helper to normalize IPv6 addresses correctly.
 12. **Service functions reaching into `req` directly** — occurred twice (`optionalAuth`'s original draft, then `loginUser` reading `req.headers['user-agent']` directly) — `req`/`res` belong to controllers only; services must receive plain arguments so they stay testable in isolation.
-13. **`throw Error` instead of `throw error`** — a one-character typo that discarded the custom error's `message`/`statusCode`/`code` entirely, surfacing as a cryptic `[Function: Error] { stackTraceLimit: 10 }` log instead of a readable error.
 
 ---
 

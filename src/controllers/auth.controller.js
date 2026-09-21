@@ -34,14 +34,8 @@ const login = async (req, res) => {
             id: user.id,
             name: user.name,
             email: user.email,
+            createdAt: user.createdAt,
         },
-    });
-};
-
-const getMe = async (req, res) => {
-    return res.status(200).json({
-        success: true,
-        user: req.user,
     });
 };
 
@@ -115,7 +109,7 @@ const resetUserPassword = async (req, res) => {
 };
 
 export {
-    register, login, getMe, logout, refreshAccessToken,
+    register, login, logout, refreshAccessToken,
     verifyUserEmail, resendVerification,
     forgotPassword, resetUserPassword
 };

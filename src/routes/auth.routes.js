@@ -15,13 +15,10 @@ import {
 
 // controller
 import {
-    register, login, refreshAccessToken,
-    getMe, logout, verifyUserEmail, resendVerification,
-    forgotPassword,
-    resetUserPassword
+    register, login, refreshAccessToken, logout, verifyUserEmail, resendVerification,
+    forgotPassword, resetUserPassword
 } from '../controllers/auth.controller.js';
 
-router.route('/me').get(protect, catchAsync(getMe));
 router.route('/register').post(validateRequest(createUserSchema), catchAsync(register));
 router.route('/login').post(validateRequest(loginUserSchema), catchAsync(login));
 router.route('/refresh-token').post(catchAsync(refreshAccessToken));

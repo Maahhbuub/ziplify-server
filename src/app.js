@@ -9,6 +9,7 @@ import { globalError, invalidRoute } from "./middlewares/error.middleware.js";
 import authRoute from "./routes/auth.routes.js";
 import urlRoute from "./routes/url.route.js";
 import dashboardRoute from "./routes/dashboard.routes.js";
+import userRoute from "./routes/user.routes.js";
 
 const app = express();
 
@@ -39,6 +40,7 @@ app.get('/', (req, res) => {
 
 // routes
 app.use("/auth", authRoute);
+app.use("/user", userRoute);
 app.use("/dashboard", dashboardRoute);
 app.use("/", urlRoute);
 
