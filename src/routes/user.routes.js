@@ -10,10 +10,13 @@ import { getMe, updateMyProfile, changeMyPassword, deleteMyAccount } from '../co
 
 router.route('/me')
     .get(protect, catchAsync(getMe));
+
 router.route('/profile')
     .patch(validateRequest(updateProfileSchema), protect, catchAsync(updateMyProfile));
+
 router.route('/change-password')
     .post(validateRequest(changePasswordSchema), protect, catchAsync(changeMyPassword));
+
 router.route('/account')
     .delete(validateRequest(deleteAccountSchema), protect, catchAsync(deleteMyAccount));
 

@@ -24,6 +24,14 @@ app.use(
     })
 );
 
+app.get('/debug-ip', (req, res) => {
+    res.json({
+        ip: req.ip,
+        xff: req.headers['x-forwarded-for'],
+        realIp: req.headers['x-real-ip'],
+    });
+});
+
 // health check
 app.get("/health", (req, res) => {
     res.status(200).json({

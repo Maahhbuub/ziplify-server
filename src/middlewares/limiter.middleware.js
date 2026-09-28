@@ -1,7 +1,13 @@
 import { rateLimit, ipKeyGenerator } from 'express-rate-limit'
 import { RedisStore } from 'rate-limit-redis';
-
 import redis from "../lib/redisClient.js"
+
+const emailKey = (req) => {
+    const email = req.body?.email;
+    return typeof email === 'string' && email
+        ? email.trim().toLowerCase()
+        : ipKeyGenerator(req.ip);
+};
 
 const shortenLimit = rateLimit({
     store: new RedisStore({
@@ -10,7 +16,7 @@ const shortenLimit = rateLimit({
     }),
     windowMs: 15 * 60 * 1000,
     max: 20,
-    message: 'Too many request',
+    message: { success: false, message: 'Too many requests.' },
     standardHeaders: true,
     legacyHeaders: false,
 });
@@ -22,7 +28,7 @@ const redirectLimit = rateLimit({
     }),
     windowMs: 1 * 60 * 1000,
     max: 100,
-    message: 'Too many requests, Please slow down.',
+    message: { success: false, message: 'Too many requests.' },
     standardHeaders: true,
     legacyHeaders: false,
     ipv6Subnet: 56,
@@ -33,7 +39,7 @@ const resendVerificationLimit = rateLimit({ // ip based limiter
         sendCommand: (...args) => redis.call(...args),
         prefix: 'rl:resend-verification:',
     }),
-    windowMs: 15 * 60 * 1000, // 1 hour
+    windowMs: 15 * 60 * 1000, // 15 min
     max: 5,
     message: { success: false, message: 'Too many verification emails sent' },
     standardHeaders: true,
@@ -47,11 +53,27 @@ const resendVerificationByEmailLimit = rateLimit({ // email based limiter
     }),
     windowMs: 60 * 60 * 1000, // 1 hour
     max: 3,
-    keyGenerator: (req) => {
-        const email = req.body?.email?.toLowerCase();
-        return email || ipKeyGenerator(req.ip); // normalize IP fallback through their helper
-    },
+    keyGenerator: emailKey,
     message: { success: false, message: 'Too many verification emails sent' },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+const loginLimit = rateLimit({
+    store: new RedisStore({ sendCommand: (...args) => redis.call(...args), prefix: 'rl:login:' }),
+    windowMs: 15 * 60 * 1000,
+    max: 10,
+    skipSuccessfulRequests: true, // only failed attempts count
+    message: { success: false, message: 'Too many login attempts. Please try again later.' },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+const registerLimit = rateLimit({
+    store: new RedisStore({ sendCommand: (...args) => redis.call(...args), prefix: 'rl:register:' }),
+    windowMs: 60 * 60 * 1000,
+    max: 5,
+    message: { success: false, message: 'Too many signup attempts. Please try again later.' },
     standardHeaders: true,
     legacyHeaders: false,
 });
@@ -75,10 +97,10 @@ const forgotPasswordByEmailLimit = rateLimit({
     }),
     windowMs: 60 * 60 * 1000,
     max: 3,
-    keyGenerator: (req) => req.body?.email?.toLowerCase() || ipKeyGenerator(req.ip),
+    keyGenerator: emailKey,
     message: { success: false, message: 'Too many reset emails sent to this address. Please try again later.' },
     standardHeaders: true,
     legacyHeaders: false,
 });
 
-export { shortenLimit, redirectLimit, resendVerificationLimit, resendVerificationByEmailLimit, forgotPasswordLimit, forgotPasswordByEmailLimit };
+export { shortenLimit, redirectLimit, resendVerificationLimit, resendVerificationByEmailLimit, forgotPasswordLimit, forgotPasswordByEmailLimit, loginLimit, registerLimit };
