@@ -24,7 +24,7 @@ app.use(
     })
 );
 
-app.get('/debug-ip', (req, res) => {
+app.get('/debugip', (req, res) => {
     res.json({
         ip: req.ip,
         xff: req.headers['x-forwarded-for'],
