@@ -27,11 +27,7 @@ app.use(
 );
 
 app.get('/debugip', (req, res) => {
-    res.json({
-        ip: req.ip,
-        xff: req.headers['x-forwarded-for'],
-        realIp: req.headers['x-real-ip'],
-    });
+    res.json({ ip: req.ip, headers: req.headers });
 });
 
 // health check
