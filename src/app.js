@@ -16,7 +16,6 @@ const app = express();
 // built-in middlewares
 app.use(express.json());
 app.use(cookieParser());
-
 app.set('trust proxy', 2);
 
 app.use(
@@ -25,10 +24,6 @@ app.use(
         credentials: true,
     })
 );
-
-app.get('/debugip', (req, res) => {
-    res.json({ ip: req.ip, headers: req.headers });
-});
 
 // health check
 app.get("/health", (req, res) => {

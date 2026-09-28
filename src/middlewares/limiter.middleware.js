@@ -9,6 +9,14 @@ const emailKey = (req) => {
         : ipKeyGenerator(req.ip);
 };
 
+const redirectKey = (req) => {
+    const vercelIp = req.headers['x-vercel-forwarded-for'];
+    const ip = typeof vercelIp === 'string' && vercelIp
+        ? vercelIp.split(',')[0].trim()
+        : req.ip;
+    return ipKeyGenerator(ip);
+};
+
 const shortenLimit = rateLimit({
     store: new RedisStore({
         sendCommand: (...args) => redis.call(...args),
@@ -26,12 +34,12 @@ const redirectLimit = rateLimit({
         sendCommand: (...args) => redis.call(...args),
         prefix: 'rl:redirect:',
     }),
-    windowMs: 1 * 60 * 1000,
+    windowMs: 60 * 1000,
     max: 100,
-    message: { success: false, message: 'Too many requests.' },
+    keyGenerator: redirectKey,
+    message: { success: false, message: 'Too many requests, please slow down.' },
     standardHeaders: true,
     legacyHeaders: false,
-    ipv6Subnet: 56,
 });
 
 const resendVerificationLimit = rateLimit({ // ip based limiter
