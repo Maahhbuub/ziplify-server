@@ -11,7 +11,7 @@ import { createUrlSchema } from '../validations/url.validation';
 // controller
 import { createShortUrl, redirectToUrl } from '../controllers/url.controller';
 
-router.route("/").post(shortenLimit, optionalAuth, validateRequest(createUrlSchema), catchAsync(createShortUrl));
-router.route("/:shortCode").get(redirectLimit, catchAsync(redirectToUrl));
+router.route("/").post( optionalAuth, validateRequest(createUrlSchema), catchAsync(createShortUrl));
+router.route("/:shortCode").get( catchAsync(redirectToUrl));
 
 export default router;
